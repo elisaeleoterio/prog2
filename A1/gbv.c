@@ -38,8 +38,24 @@ int gbv_add(Library *lib, const char *archive, const char *docname) {
     }
     
 }
-int gbv_remove(Library *lib, const char *docname);
-int gbv_list(const Library *lib);
+
+// Remove logicamente os documentos indicados (os dados
+// permanecem no arquivo, mas o metadado é excluído).
+int gbv_remove(Library *lib, const char *docname) {
+
+}
+
+// Lista os documentos, exibindo: nome; tamanho em bytes; data
+// de inserção; posição (offset) no container.
+int gbv_list(const Library *lib) {
+
+}
+
+// Visualiza o documento em blocos de tamanho fixo. O
+// usuário deve poder navegar pelo conteúdo:
+// ◦ n → próximo bloco,
+// ◦ p → bloco anterior,
+// ◦ q → sair da visualização.
 int gbv_view(const Library *lib, const char *docname);
 
 
