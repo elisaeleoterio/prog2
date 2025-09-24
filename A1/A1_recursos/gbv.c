@@ -6,7 +6,7 @@
 #include "util.h"
 #include "gbv.h"
 
-#define BUFFER_SIZE [tamanho do meu maior arquivo]
+#define BUFFER_SIZE 500
 
 
 /* ANOTAÇÕES:
@@ -22,6 +22,7 @@ Essa forma de implementação do ponteiro para alib->docs, que só apresenta o p
 O que é o archive e o que é o document da função gbv_add?
 Onde estão os metadados do arquivo?
 Não entendi exatamente a função remover. Eu removo logicamente o arquivo, mas não os dados. Quando eu for visualizar os arquivos, eu não imprimo esse que foi removido daí?
+Ao substituir um arquivo na função add, precisa ser adicionado no mesmo lugar?
 */
 
 // FUNÇÕES GBV
@@ -111,7 +112,46 @@ int gbv_open(Library *lib, const char *filename) {
 // Adiciona um Documento à biblioteca no fima da Área de Dados
 // Retorna 0 no caso de operação bem sucedida
 int gbv_add(Library *lib, const char *archive, const char *docname) {
+    if (!lib || !archive || !docname) {
+        printf("Ponteiro nulo.\n");
+        return -1;
+    }
+    
+    // Abre o arquivo novo para leitura
+    FILE *novo = fopen(docname, "rb"); 
+    if (!novo) {
+        printf("Arquivo inexistente.\n");
+        return -1;
+    }
 
+    // Achar tamanho do arquivo novo
+    fseek(novo, 0, SEEK_END);
+    long tam_novo = ftell(novo);
+    fseek(novo, 0, SEEK_SET);
+
+    // Criar buffer com tamanho máximo
+    void *buffer = malloc(sizeof(BUFFER_SIZE));
+
+    // Copiar arquivo pro buffer
+
+    // Abre o diretório onde irá adicionar o arquivo com permissão de escrita
+    FILE *f = fopen(archive, "wb"); 
+    if (!f) {
+        printf("Biblioteca inexistente.\n");
+        return -1;
+    }
+    
+    // Se arquivo já existir na biblioteca, remover ele antes de adicionar o novo
+    if (buscar(lib->docs, docname)) {
+        if(gbv_remove(lib, docname)) {
+            printf("Erro ao remover arquivo repetido.\n");
+            return -1;
+        };
+    }
+    
+    
+    
+    
     /*
     Abrir diretório (archive)
     Abrir arquivo novo (docname)
