@@ -116,6 +116,7 @@ int gbv_add(Library *lib, const char *archive, const char *docname) {
         printf("Ponteiro nulo.\n");
         return -1;
     }
+
     
     // Abre o arquivo novo para leitura
     FILE *novo = fopen(docname, "rb"); 
@@ -123,11 +124,17 @@ int gbv_add(Library *lib, const char *archive, const char *docname) {
         printf("Arquivo inexistente.\n");
         return -1;
     }
-
+    
     // Achar tamanho do arquivo novo
     fseek(novo, 0, SEEK_END);
     long tam_novo = ftell(novo);
     fseek(novo, 0, SEEK_SET);
+    
+    Document *metadados = malloc(sizeof(Document));
+    strcpy(metadados->name, docname);
+    metadados->date = ;
+    metadados->offset = ;
+    metadados->size = tam_novo;
 
     // Criar buffer com tamanho máximo
     void *buffer = malloc(sizeof(BUFFER_SIZE));
