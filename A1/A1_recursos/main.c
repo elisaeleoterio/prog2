@@ -27,8 +27,8 @@ int main(int argc, char *argv[]) {
         }
     } else if (strcmp(opcao, "-l") == 0) {
         gbv_list(&lib);
-    //} else if (strcmp(opcao, "-v") == 0 && argc >= 4) {
-        //gbv_view(&lib, biblioteca, argv[3]);
+    } else if (strcmp(opcao, "-v") == 0 && argc >= 4) {
+        gbv_view(&lib, biblioteca, argv[3]);
     } else {
         printf("Opção inválida.\n");
     }

@@ -6,6 +6,7 @@
 #include "util.h"
 #include "gbv.h"
 
+#define BLOCK_SIZE 500
 
 /* ANOTAÇÕES:
 A estrutura Document armazena os metadados dos arquivos
@@ -31,14 +32,19 @@ Não entendi a função que está definida em util.c
 Como limitar o tamanho do nome do arquivo ao adicionar nos metadados?
 Como abrir a biblioteca no remover?
 Falta archive no gbv_view também?
-
+Por que eu não consigo transformar o main.c em um arquivo gbv?
+Não está dando free no lib->docs
 */
 
 // FUNÇÕES AUXILIARES
+
+// Busca nos metadados o arquivo de mesmo nome
+// Retorna a posição do arquivo na biblioteca ou -1 em caso de não existir
 int buscar(const Library *lib, const char *docname) {
-    // Passar pelos metadados
-    // Comparar strings
-    // Caso seja igual, retornar
+    if (!lib || !docname) {
+        
+    }
+    
     for (size_t i = 0; i < lib->count; i++) {
         if (strcmp(docname, lib->docs[i].name) == 0) {
             return i;
@@ -65,7 +71,8 @@ int gbv_create(const char *filename) {
         return 1;
     }
     
-    int tam = 0; // Definição da quantidade de arquivos no diretório
+    // Definição da quantidade de arquivos no diretório
+    int tam = 0;
     // Escrita inicial do cabeçalho (quantidade de arquivos)
     fseek(f, 0, SEEK_SET);
     fwrite(&tam, sizeof(int), 1, f);
@@ -291,13 +298,14 @@ int gbv_list(const Library *lib) {
         printf("Ponteiro nulo.\n");
         return -1;
     }
-    
+
     for (size_t i = 0; i < lib->count; i++) {
         printf("------ ARQUIVO %ld ------\n", i);
         printf("Nome: %s\n", lib->docs[i].name);
         printf("Tamanho em bytes: %ld\n", lib->docs[i].size);
         printf("Data de Inserção: ");
         // format_date(lib->docs[i].date, buffer?, max?);
+        printf("\n");
         printf("Posição: %ld\n", lib->docs[i].offset);
     }
     
@@ -309,53 +317,97 @@ int gbv_list(const Library *lib) {
 //     ◦ n → próximo bloco,
 //     ◦ p → bloco anterior,
 //     ◦ q → sair da visualização.
-// int gbv_view(const Library *lib, const char *archive, const char *docname) {
-//     if (!lib || !docname) {
-//         printf("Ponteiro nulo.\n");
-//         return -1;
-//     }
+int gbv_view(const Library *lib, const char *archive, const char *docname) {
+    if (!lib || !archive || !docname) {
+        printf("Ponteiro nulo.\n");
+        return -1;
+    }
 
-//     FILE *f = fopen(archive, "rb");
-//     if (!f) {
-//         printf("Arquivo inexistente.\n");
-//         return -1;
-//     }
-
-//     // Buscar posição do arquivo a ser lido
-//     int pos = buscar(lib, docname);
-
-//     // Seta para o início do arquivo a ser lido
-//     fseek(f, lib->docs[pos].offset, SEEK_SET);
-
-//     // Aloca vetor para ler arquivo
-//     void *buffer = malloc(2 * BUFFER_SIZE);
-//     if (!buffer) {
-//         printf("Erro ao alocar.\n");
-//         return -1;
-//     }
-
-//     // Lê arquivo para o buffer
-//     fread(buffer, lib->docs[pos].size, 1, f);
-
-
+    // Abre arquivo para 
+    FILE *f = fopen(archive, "rb");
+    if (!f) {
+        printf("Arquivo inexistente.\n");
+        return -1;
+    }
     
+    // Encontra o incio do arquivo (será usado como condição para não ler lixo de memória)    
+    fseek(f, 0, SEEK_SET);
+    long inicio = ftell(f);
 
+    // Encontra o fim do arquivo (será usado como condição para não ler lixo de memória)
+    fseek(f, 0, SEEK_END);
+    long fim = ftell(f);
 
+    // Buscar posição do arquivo a ser lido
+    int pos = buscar(lib, docname);
+    if (pos == -1) {
+        printf("Documento não existe na biblioteca.\n");
+        fclose(f);
+        return 1;
+    }
     
+    // Aloca vetor para ler arquivo
+    // Blocos serão do tamanho BLOCK_SIZE
+    void *buffer = malloc(BLOCK_SIZE);
+    if (!buffer) {
+        printf("Erro ao alocar.\n");
+        return -1;
+    }
 
+    // Seta para o início do bloco a ser lido
+    fseek(f, lib->docs[pos].offset, SEEK_SET);
 
-//     // Ler próxima navegação
-//     char nav;
-//     do
-//     {
-//         printf("Selecione a próxima navegação: \n");
-//         printf("◦ n → próximo bloco\n ◦ p → bloco anterior\n ◦ q → sair da visualização\n");
-//         scanf("%c", &nav);
-//     } while (nav != "n" || nav != "p" || nav != "q");
-    
-    
-    
+    //Escreve pedaço de tamanho BLOCK_SIZE do arquivo no buffer
+    fread(buffer, BLOCK_SIZE, 1, f);
 
+    // Imprime trecho do arquivo para o usuário
+    printf("----------------------------------------\n");
+    char *trecho = (char*)buffer; // Tranforma o ponteiro de void em uma string
+    printf("%s\n", trecho);
+    printf("----------------------------------------\n");
 
-    
-//}
+    char nav;
+    scanf("%c", &nav);
+    while (nav != 'q') {
+        if (nav == 'n') {
+            pos = ftell(f) + BLOCK_SIZE; // Pega a posição atual do ponteiro do file e soma para ir para o próximo bloco
+            if (pos > fim) {
+                printf("Você chegou ao fim da biblioteca.\n");
+                // Fecahr coisas tudo
+                return 1;
+            }
+
+            fseek(f, pos, SEEK_SET);
+            //Escreve pedaço de tamanho BLOCK_SIZE do arquivo no buffer
+            fread(buffer, BLOCK_SIZE, 1, f);
+
+            // Imprime trecho do arquivo para o usuário
+            printf("----------------------------------------\n");
+            trecho = (char*)buffer; // Tranforma o ponteiro de void em uma string
+            printf("%s\n", trecho);
+            printf("----------------------------------------\n");
+            
+        } else if (nav == 'p') {
+            pos = ftell(f) - BLOCK_SIZE; // Pega a posição atual do ponteiro do file e soma para ir para o próximo bloco
+            if (pos < inicio) {
+                printf("Você chegou a antes do fim da biblioteca.\n");
+                // Fecahr coisas tudo
+                return 1;
+            }
+
+            fseek(f, pos, SEEK_SET);
+            //Escreve pedaço de tamanho BLOCK_SIZE do arquivo no buffer
+            fread(buffer, BLOCK_SIZE, 1, f);
+
+            // Imprime trecho do arquivo para o usuário
+            printf("----------------------------------------\n");
+            trecho = (char*)buffer; // Tranforma o ponteiro de void em uma string
+            printf("%s\n", trecho);
+            printf("----------------------------------------\n");
+        }
+        scanf("%c", &nav);
+        printf("\n");
+    }
+
+    return 0;
+}
