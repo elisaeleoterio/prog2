@@ -122,22 +122,26 @@ int gbv_add(Library *lib, const char *archive, const char *docname) {
         return -1;
     }
     
+    // Verifica se arquivo já existe na biblioteca, 
+    // Se sim, remove ele
+    if (buscar(lib->docs, docname)) {
+        if(gbv_remove(lib, docname)) {
+            printf("Erro ao remover arquivo repetido.\n");
+            return -1;
+        };
+    }
+
     // Achar tamanho do arquivo novo
     fseek(novo, 0, SEEK_END);
     long tam_novo = ftell(novo);
     fseek(novo, 0, SEEK_SET);
     
-    // Definir os dados dos metadados
-    Document *metadados;
-    strcpy(metadados->name, docname); // Até 256B
-    time(metadados->date); // Data de inserção
-    // metadados->offset = ; // Offset do container
-    metadados->size = tam_novo; // Tamanho em bytes
-
-    // Criar buffer com tamanho máximo
+    // Criar buffer com tamanho do novo arquivo
     void *buffer = malloc(sizeof(tam_novo));
 
-    // Copiar arquivo pro buffer
+    // Copiar arquivo novo pro buffer
+    fread(buffer, tam_novo, 1, novo);
+
 
     // Abre o diretório onde irá adicionar o arquivo com permissão de escrita
     FILE *f = fopen(archive, "w+b"); 
@@ -145,14 +149,23 @@ int gbv_add(Library *lib, const char *archive, const char *docname) {
         printf("Biblioteca inexistente.\n");
         return -1;
     }
+
+    // Achar offset onde devo adicionar o arquivo
+    long offset;
+    fseek(f, sizeof(int), SEEK_SET); // Coloca o início do stream após o fim da primeira parte do cabeçalho
+    fread(&offset, sizeof(long int), 1, f); // Vai escrever offset do diretório
+    fseek(f, offset, SEEK_SET); // Busca onde a área de dados finaliza
+
+    // Definir os dados dos metadados
+    Document *metadados;
+    strcpy(metadados->name, docname); // Até 256B
+    time(metadados->date); // Data de inserção
+    metadados->offset = offset; // Offset do container (onde o arquivo anterior termina e o novo começa)
+    metadados->size = tam_novo; // Tamanho em bytes
+
+    fwrite()
+
     
-    // Se arquivo já existir na biblioteca, remover ele antes de adicionar o novo
-    if (buscar(lib->docs, docname)) {
-        if(gbv_remove(lib, docname)) {
-            printf("Erro ao remover arquivo repetido.\n");
-            return -1;
-        };
-    }
     
     
     
@@ -161,27 +174,13 @@ int gbv_add(Library *lib, const char *archive, const char *docname) {
     Abrir diretório (archive)
     Abrir arquivo novo (docname)
     Verificar se já existe um arquivo com esse nome no diretório
-        Se sim, substituir
-            Verificar tamanho do novo documento e comparar com o tamanho do anterior
-                se maior
-                    copiar o de baixo para o buffer
-                    escrever o novo
-                    copiar o de baixo do de baixo
-                    copiar o de baixo
-                    ...
-                    atualizar metadados
-                se menor
-                    escrever novo no lugar
-                    jogar todos os demais arquivos para cima
-                    atualizar metadados
-
-        se não
-            Passar novo arquivo para o buffer (docname)
-            Escrever arquivo do buffer para o diretório na memória de disco
-            Adicionar metadados na lib->docs
-            Escrever lib->docs na parte de metadados do diretório
-            Atualizar quantidade de arquivos do lib->count
-            Atualizar quantidade de arquivos do cabeçalho do diretório
+        Se sim, remover
+        Passar novo arquivo para o buffer (docname)
+        Escrever arquivo do buffer para o diretório na memória de disco
+        Adicionar metadados na lib->docs
+        Escrever lib->docs na parte de metadados do diretório
+        Atualizar quantidade de arquivos do lib->count
+        Atualizar quantidade de arquivos do cabeçalho do diretório
     fclose
     */
 
