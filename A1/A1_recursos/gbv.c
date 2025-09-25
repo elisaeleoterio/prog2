@@ -23,6 +23,7 @@ O que é o archive e o que é o document da função gbv_add?
 Onde estão os metadados do arquivo?
 Não entendi exatamente a função remover. Eu removo logicamente o arquivo, mas não os dados. Quando eu for visualizar os arquivos, eu não imprimo esse que foi removido daí?
 Ao substituir um arquivo na função add, precisa ser adicionado no mesmo lugar?
+Não entendi a função que está definida em util.c
 */
 
 // FUNÇÕES GBV
@@ -57,8 +58,7 @@ int gbv_create(const char *filename) {
         return -1;
     };
     
-    fclose(f);
-    return 0;
+    return fclose(f);
 }
 
 // Carrega o diretório da biblioteca para a memória.
@@ -81,16 +81,15 @@ int gbv_open(Library *lib, const char *filename) {
     
     // Armazena na struct a qauntidade de arquivos que estão no diretório
     int count;
-    fread(count, sizeof(int), 1, f);
+    fread(&count, sizeof(int), 1, f);
     lib->count = count;
-    if (lib->count) { // Se existirem arquivos no diretório
-        
-        // Cria um ponteiro para um vetor que armazena os metadados dos arquivos
-        lib->docs = malloc(lib->count * sizeof(Document));
-        if (!lib->docs) {
-            printf("Não foi possível alocar espaço na memória.\n");
-            return -1;
-        } 
+
+    // Cria um ponteiro para um vetor que armazena os metadados dos arquivos
+    lib->docs = malloc(lib->count * sizeof(Document));
+    if (!lib->docs) {
+        printf("Não foi possível alocar espaço na memória.\n");
+        return -1;
+    } 
 
         // Escrever os metadados no vetor
         /*
@@ -98,15 +97,13 @@ int gbv_open(Library *lib, const char *filename) {
         fread para pegar todos os metadados e colocá-los no local que o ponteiro de Document aponta para
         */
 
-        long offset;
-        fseek(f, sizeof(int), SEEK_SET); // Coloca o início do stream após o fim da primeira parte do cabeçalho
-        fread(&offset, sizeof(long int), 1, f); // Vai escrever offset do diretório
-        fseek(f, offset, SEEK_SET); // Busca onde a área de dados finaliza
-        fread(lib->docs, sizeof(lib->count * sizeof(Document)), 1, f); // Lê os metadados e os armazena em lib->docs
-    }
+    long offset;
+    fseek(f, sizeof(int), SEEK_SET); // Coloca o início do stream após o fim da primeira parte do cabeçalho
+    fread(&offset, sizeof(long int), 1, f); // Vai escrever offset do diretório
+    fseek(f, offset, SEEK_SET); // Busca onde a área de dados finaliza
+    fread(lib->docs, sizeof(Document), lib->count, f); // Lê os metadados e os armazena em lib->docs
 
-    fclose(f);
-    return 0;
+    return fclose(f);
 }
 
 // Adiciona um Documento à biblioteca no fima da Área de Dados
@@ -130,19 +127,20 @@ int gbv_add(Library *lib, const char *archive, const char *docname) {
     long tam_novo = ftell(novo);
     fseek(novo, 0, SEEK_SET);
     
-    Document *metadados = malloc(sizeof(Document));
-    strcpy(metadados->name, docname);
-    metadados->date = ;
-    metadados->offset = ;
-    metadados->size = tam_novo;
+    // Definir os dados dos metadados
+    Document *metadados;
+    strcpy(metadados->name, docname); // Até 256B
+    time(metadados->date); // Data de inserção
+    // metadados->offset = ; // Offset do container
+    metadados->size = tam_novo; // Tamanho em bytes
 
     // Criar buffer com tamanho máximo
-    void *buffer = malloc(sizeof(BUFFER_SIZE));
+    void *buffer = malloc(sizeof(tam_novo));
 
     // Copiar arquivo pro buffer
 
     // Abre o diretório onde irá adicionar o arquivo com permissão de escrita
-    FILE *f = fopen(archive, "wb"); 
+    FILE *f = fopen(archive, "w+b"); 
     if (!f) {
         printf("Biblioteca inexistente.\n");
         return -1;
