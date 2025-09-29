@@ -26,19 +26,23 @@ ERROS ATUAIS
 
 
 PERGUNTAS:
-Eu preciso criar uma estrutura específica para armazenar o cabeçalho?
-Não entendi se meu cálculo do offset está correto.
-Essa forma de implementação do ponteiro para alib->docs, que só apresenta o ponteiro para o início do vetor é realmente assim?
-O que é o archive e o que é o document da função gbv_add?
-Onde estão os metadados do arquivo?
+// Eu preciso criar uma estrutura específica para armazenar o cabeçalho?
+// Não entendi se meu cálculo do offset está correto.
+// O que é o archive e o que é o document da função gbv_add?
+// Onde estão os metadados do arquivo?
+// Não entendi a função que está definida em util.c
+// Essa forma de implementação do ponteiro para a lib->docs, que só apresenta o ponteiro para o início do vetor é realmente assim?
+
 Não entendi exatamente a função remover. Eu removo logicamente o arquivo, mas não os dados. Quando eu for visualizar os arquivos, eu não imprimo esse que foi removido daí?
 Ao substituir um arquivo na função add, precisa ser adicionado no mesmo lugar?
-Não entendi a função que está definida em util.c
+    Precisa
 Como limitar o tamanho do nome do arquivo ao adicionar nos metadados?
 Como abrir a biblioteca no remover?
 Falta archive no gbv_view também?
 Por que eu não consigo transformar o main.c em um arquivo gbv?
 Não está dando free no lib->docs
+
+
 Não é permitido carregar um documento inteiro na memória?
 Posso alterar o main?
 Na gbv_remove, se o arquivo não estiver no diretório, eu retorno como erro?
@@ -53,7 +57,7 @@ int buscar(const Library *lib, const char *docname) {
         
     }
     
-    for (size_t i = 0; i < lib->count; i++) {
+    for (int i = 0; i < lib->count; i++) {
         if (strcmp(docname, lib->docs[i].name) == 0) {
             return i;
         }
@@ -188,7 +192,7 @@ int gbv_add(Library *lib, const char *archive, const char *docname) {
     long offset;
     if (tam_novo > 0) {
         // Criar buffer com tamanho do novo arquivo
-        void *buffer = malloc(tam_novo);
+        void *buffer = malloc(2 * BUFFER_SIZE);
         if (!buffer) {
             printf("Erro ao alocar.\n");
             fclose(novo);
@@ -248,6 +252,7 @@ int gbv_add(Library *lib, const char *archive, const char *docname) {
     fseek(f, sizeof(int), SEEK_SET); 
     
     long novo_offset = metadados.offset + tam_novo;
+    printf("Novo offset: %ld\n", novo_offset);
     fwrite(&novo_offset, sizeof(long), 1, f); // Escreve o offset para o fim da área de dados
     
 
@@ -274,31 +279,31 @@ int gbv_remove(Library *lib, const char *archive, const char *docname) {
     FILE *f = fopen(archive, "r+b");
 
     // Caso for o único arquivo da biblioteca
-    if (lib->count == 1) {
-        
-        fseek(f, lib->docs[pos].offset, SEEK_SET);
+    if (lib->count <= 1) {
 
+        fseek(f, 0, SEEK_SET);
+        lib->count--;
+        fwrite(&lib->count, sizeof(int), 1, f);
+
+        fseek(f, sizeof(int), SEEK_SET);
+        long novo_offset = sizeof(int) + sizeof(long);
+        fwrite(&novo_offset, sizeof(long), 1, f);
+
+        free(lib->docs);
         
-        
-        // Jogar metadados para cima
-        // Atualizar lib->count
-        // Atualizar offset
     } else {
         
-        void *buffer = malloc(2 * BUFFER_SIZE); // DÚVIDA SOBRE ESSE TAMANHO   
-        if (!buffer) {
-            printf("Erro ao alocar.\n");
-            return 1;
-        }
-    
-        printf("Malloc feito: %ld\n", sizeof(buffer));
-        
+        void *buffer; 
     
         // Move os arquivos posteriores para cima
-        for (size_t i = pos + 1; i < lib->count; i++) {
+        for (int i = pos + 1; i < lib->count; i++) {
             
-            printf("Loop vez %ld\n", i);
-    
+            buffer = malloc(lib->docs[i].size); // DÚVIDA SOBRE ESSE TAMANHO   
+            if (!buffer) {
+                printf("Erro ao alocar.\n");
+                return 1;
+            }        
+
             // Encontra onde o arquivo posterior começa e o escreve no buffer
             fseek(f, lib->docs[i].offset, SEEK_SET); 
             fread(buffer, lib->docs[i].size, 1, f); 
@@ -308,16 +313,17 @@ int gbv_remove(Library *lib, const char *archive, const char *docname) {
             long novo_offset = ftell(f);
             fwrite(buffer, lib->docs[i].size, 1, f); 
             lib->docs[i].offset = novo_offset; 
+
+
         }
-    
-        printf("Saiu do loop.\n");
-    
+        
         // Substituir metadados no vetor da Library
-        for (size_t i = pos + 1; i < lib->count; i++) {
-            printf("Substituir.\n");
+        for (int i = pos + 1; i < lib->count; i++) {
             lib->docs[i - 1] = lib->docs[i];
         }
         
+        lib->count--;
+
         // Atualização do tamanho do vetor
         Document *temp = realloc(lib->docs, lib->count - 1);
         if (!temp) {
@@ -331,17 +337,13 @@ int gbv_remove(Library *lib, const char *archive, const char *docname) {
         long fim_dados = lib->docs[lib->count - 1].offset + lib->docs[lib->count - 1].size; // Definir offset do fim da Área de Dados
         fseek(f, fim_dados, SEEK_SET); // Alterar para apontar para lá
         fwrite(lib->docs, sizeof(Document), lib->count, f); // Escrever metadados
+    
+        // Atualiza cabeçalho
+        fseek(f, 0, SEEK_SET);
+        fwrite(&lib->count, sizeof(int), 1, f);
+        fseek(f, sizeof(int), SEEK_SET); 
+        fwrite(&fim_dados, sizeof(long), 1, f); 
     }
-
-
-
-    fseek(f, 0, SEEK_SET); // Apontar para início da biblioteca
-
-    // Atualiza cabeçalho
-    fseek(f, 0, SEEK_SET); // Coloca para o início do arquivo
-    fwrite(&lib->count, sizeof(int), 1, f); // Escreve a quantidade de arquivos
-    fseek(f, sizeof(int), SEEK_SET); // Coloca para após o dado da quantidade de aquivos
-    fwrite(&fim_dados, sizeof(long), 1, f); // Escreve o offset para o fim da área de dados
 
     return fclose(f);
 }
@@ -354,16 +356,22 @@ int gbv_list(const Library *lib) {
         return -1;
     }
 
-    for (size_t i = 0; i < lib->count; i++) {
-        printf("------ ARQUIVO %ld ------\n", i);
-        printf("Nome: %s\n", lib->docs[i].name);
-        printf("Tamanho em bytes: %ld\n", lib->docs[i].size);
-        char data[50];
-        format_date(lib->docs[i].date, data, sizeof(data));
-        printf("Data de Inserção: %s\n", data);
-        printf("Posição: %ld\n", lib->docs[i].offset);
+    if (lib->count <= 0) {
+        printf("Não há arquivos na biblioteca ainda.\n");
+    } else {
+        for (int i = 0; i < lib->count; i++) {
+            printf("\n");
+            printf("------ ARQUIVO %d ------\n", i);
+            printf("Nome: %s\n", lib->docs[i].name);
+            printf("Tamanho em bytes: %ld\n", lib->docs[i].size);
+            char data[50];
+            format_date(lib->docs[i].date, data, sizeof(data));
+            printf("Data de Inserção: %s\n", data);
+            printf("Posição: %ld\n", lib->docs[i].offset);
+            printf("\n");
+        }        
     }
-    
+
     return 0;
 }
 

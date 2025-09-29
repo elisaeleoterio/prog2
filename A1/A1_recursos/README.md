@@ -137,3 +137,8 @@ Testes interativos para verificar a execução da função de visualização.
 
 ## Fonte de Dúvidas
 https://www.tutorialspoint.com/c_standard_library/
+
+
+
+
+- ./gbv -a bib.gbv ar1.txt ar2.txt ar3.txt rodou certo

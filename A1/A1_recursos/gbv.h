@@ -4,7 +4,7 @@
 #include <time.h>
 
 #define MAX_NAME 256
-#define BUFFER_SIZE 200000   // tamanho fixo do buffer em bytes
+#define BUFFER_SIZE 512   // tamanho fixo do buffer em bytes
 
 // Estrutura de metadados de cada documento
 typedef struct {
