@@ -134,3 +134,6 @@ Testes interativos para verificar a execução da função de visualização.
 
 3. Adicionar três arquivos
     - Comando utilizado: `valgrind --leak-check=full --track-origins=yes ./gbv -a bib.gbv ar1.tx ar2.txt ar3.txt`
+
+## Fonte de Dúvidas
+https://www.tutorialspoint.com/c_standard_library/
