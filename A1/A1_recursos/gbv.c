@@ -19,6 +19,11 @@ Escrever os metadados no lib->docs
 Achar onde a Área de Dados termina -> Ponteiro no início do diretório indica onde está
 fread para pegar todos os metadados e colocá-los no local que o ponteiro de Document aponta para
 
+ERROS ATUAIS
+- Adição de arquivo repetido está adicionando duas vezes
+- Remoção não está correta inteiramente
+- View não está funcionando corretamente
+
 
 PERGUNTAS:
 Eu preciso criar uma estrutura específica para armazenar o cabeçalho?
@@ -34,6 +39,7 @@ Como abrir a biblioteca no remover?
 Falta archive no gbv_view também?
 Por que eu não consigo transformar o main.c em um arquivo gbv?
 Não está dando free no lib->docs
+Não é permitido carregar um documento inteiro na memória?
 */
 
 // FUNÇÕES AUXILIARES
@@ -303,9 +309,9 @@ int gbv_list(const Library *lib) {
         printf("------ ARQUIVO %ld ------\n", i);
         printf("Nome: %s\n", lib->docs[i].name);
         printf("Tamanho em bytes: %ld\n", lib->docs[i].size);
-        printf("Data de Inserção: ");
-        // format_date(lib->docs[i].date, buffer?, max?);
-        printf("\n");
+        char data[50];
+        format_date(lib->docs[i].date, data, sizeof(data));
+        printf("Data de Inserção: %s\n", data);
         printf("Posição: %ld\n", lib->docs[i].offset);
     }
     
@@ -367,7 +373,7 @@ int gbv_view(const Library *lib, const char *archive, const char *docname) {
     printf("----------------------------------------\n");
 
     char nav;
-    scanf("%c", &nav);
+    scanf(" %c", &nav);
     while (nav != 'q') {
         if (nav == 'n') {
             pos = ftell(f) + BLOCK_SIZE; // Pega a posição atual do ponteiro do file e soma para ir para o próximo bloco
@@ -405,7 +411,7 @@ int gbv_view(const Library *lib, const char *archive, const char *docname) {
             printf("%s\n", trecho);
             printf("----------------------------------------\n");
         }
-        scanf("%c", &nav);
+        scanf(" %c", &nav);
         printf("\n");
     }
 
