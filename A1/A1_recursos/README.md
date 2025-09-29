@@ -64,29 +64,9 @@ Também existem funções auxiliares para fazer as manipulações no vetor e no 
 
 ## 🐞 Bugs conhecidos:
 
-- Nos casos de teste do script.py não foram encontrados bugs. 
+- Função de adicionar arquivo repetido grande (ar1.txt) no diretório já criado está gerando segmentation fault. 
 
 ---
-
-## Casos de Teste:
-
-1. Argumentos insuficientes ou incorretos.
-    - `./gbv`
-    - `./gbv -a`
-    - `./gbv -x bib.gbv` 
-        Cria o diretório para armazenar, porém não realiza nenhuma das operações existentes
-    - `./gbv -a bib.gbv`
-        Cria o diretório para armazenar, porém não realiza nenhuma das operações existentes (não entra no loop que chama a função)
-
-2. Adição de arquivos
-    - Adição em um diretório vazio
-        - `./gbv -a novo_dir.gbv arq1.txt`
-            Cria o diretório 
-    - Adição de arquivo vazio
-        - `./gbv -a bib.gbv vazio.txt
-
-
-
 
 ## Casos de Teste para o Programa GBV
 
@@ -115,128 +95,42 @@ Esta lista foi elaborada para validar todas as funcionalidades do programa gbv, 
 4. Adicionar um arquivo que não existe no disco ( `./gbv -a bib_nova.gbv arquivo_fantasma.txt` )
 5. Adicionar um arquivo vazio (0 bytes) ( `./gbv -a bib_nova.gbv vazio.txt` )
 
-### Testes da Operação de Remoção (-r)
+### Categoria 3: Testes da Operação de Remoção (-r)
 
-    TC-REM-01: Remover um arquivo do meio da biblioteca
+1. Remover um arquivo do meio da biblioteca ( `./gbv -r bib_nova.gbv arq2.txt` )
+2. Remover o primeiro arquivo da biblioteca ( `./gbv -r bib_nova.gbv arq1.txt` )
+3. Remover o último arquivo da biblioteca ( `./gbv -r bib_nova.gbv arq3.txt` )
+4. Remover um arquivo que não existe na biblioteca ( `./gbv -r bib_nova.gbv arquivo_fantasma.txt` )
+5. Remover o único arquivo da biblioteca ( `./gbv -r bib_nova.gbv arquivo_unico.txt` )
+6. Remover múltiplos arquivos de uma só vez ( `./gbv -r bib_nova.gbv arq1.txt arq3.txt` )
 
-        Contexto: Biblioteca com arq1.txt, arq2.txt, arq3.txt.
+### Categoria 4: Testes da Operação de Listagem (-l)
 
-        Comando: ./gbv -r bib_nova.gbv arq2.txt
+1. Listar uma biblioteca vazia ( `./gbv -l bib_vazia.gbv` )
+2. Listar uma biblioteca com vários arquivos ( `./gbv -l bib_cheia.gbv` )
 
-        Resultado Esperado: O arquivo arq2.txt deve ser removido. A listagem (-l) deve mostrar apenas arq1.txt e arq3.txt. Os offsets devem ser ajustados se a remoção for física (como no seu código).
+### Categoria 5: Testes da Operação de Visualização (-v)
 
-    TC-REM-02: Remover o primeiro arquivo da biblioteca
+Testes interativos para verificar a execução da função de visualização.
 
-        Comando: ./gbv -r bib_nova.gbv arq1.txt
-
-        Resultado Esperado: arq1.txt é removido. A listagem mostra os arquivos restantes.
-
-    TC-REM-03: Remover o último arquivo da biblioteca
-
-        Comando: ./gbv -r bib_nova.gbv arq3.txt
-
-        Resultado Esperado: arq3.txt é removido. A listagem mostra os arquivos restantes.
-
-    TC-REM-04: Remover um arquivo que não existe na biblioteca
-
-        Comando: ./gbv -r bib_nova.gbv arquivo_fantasma.txt
-
-        Resultado Esperado: O programa deve exibir uma mensagem (ex: "Arquivo inexistente na biblioteca") e não fazer nenhuma alteração.
-
-    TC-REM-05: Remover o único arquivo da biblioteca
-
-        Contexto: Biblioteca com apenas um arquivo.
-
-        Comando: Remover esse arquivo.
-
-        Resultado Esperado: A biblioteca deve ficar vazia. A listagem (-l) não deve mostrar nenhum arquivo e o cabeçalho deve indicar 0 documentos.
-
-    TC-REM-06: Remover múltiplos arquivos de uma só vez
-
-        Comando: ./gbv -r bib_nova.gbv arq1.txt arq3.txt
-
-        Resultado Esperado: Ambos os arquivos devem ser removidos.
-
-Categoria 4: Testes da Operação de Listagem (-l)
-
-    TC-LIST-01: Listar uma biblioteca vazia
-
-        Comando: ./gbv -l bib_vazia.gbv
-
-        Resultado Esperado: O programa não deve exibir nenhum arquivo, ou pode exibir uma mensagem como "A biblioteca está vazia". Não deve haver erros.
-
-    TC-LIST-02: Listar uma biblioteca com vários arquivos
-
-        Comando: ./gbv -l bib_cheia.gbv
-
-        Resultado Esperado: Todos os arquivos devem ser listados, cada um com seu: nome, tamanho em bytes, data de inserção formatada e offset correto no container.
-
-Categoria 5: Testes da Operação de Visualização (-v)
-
-Estes testes são interativos.
-
-    TC-VIEW-01: Visualizar um arquivo maior que o BLOCK_SIZE
-
-        Comando: ./gbv -v minhabib.gbv arquivo_grande.txt
-
-        Interação:
-
-            Pressionar n: deve mostrar o próximo bloco de dados.
-
-            Pressionar p: deve mostrar o bloco anterior.
-
-            Pressionar q: deve sair do modo de visualização.
-
-    TC-VIEW-02: Visualizar um arquivo menor que o BLOCK_SIZE
-
-        Comando: ./gbv -v minhabib.gbv arquivo_pequeno.txt
-
-        Interação: O conteúdo completo deve ser exibido. Pressionar n ou p não deve causar erro e, idealmente, deve informar que não há mais conteúdo naquela direção.
-
-    TC-VIEW-03: Tentar navegar além dos limites
-
-        Comando: ./gbv -v minhabib.gbv arquivo_grande.txt
-
-        Interação:
+1. Visualizar um arquivo maior que o BLOCK_SIZE ( `./gbv -v minhabib.gbv arquivo_grande.txt` )
+2. Visualizar um arquivo menor que o BLOCK_SIZE ( `./gbv -v minhabib.gbv arquivo_pequeno.txt` )
+3. Tentar navegar além dos limites ( `./gbv -v minhabib.gbv arquivo_grande.txt` )
 
             No primeiro bloco, pressionar p. O programa não deve quebrar; deve informar que está no início.
 
             No último bloco, pressionar n. O programa não deve quebrar; deve informar que está no fim.
 
-    TC-VIEW-04: Visualizar um arquivo que não existe na biblioteca
+ 4. Visualizar um arquivo que não existe na biblioteca ( `./gbv -v minhabib.gbv arquivo_fantasma.txt` )
+5. Visualizar um arquivo vazio ( `./gbv -v minhabib.gbv vazio.txt` )
 
-        Comando: ./gbv -v minhabib.gbv arquivo_fantasma.txt
+## Testes com Valgrind
 
-        Resultado Esperado: O programa deve exibir uma mensagem de erro e encerrar.
+1. Criar e abrir um diretório não gera vazamento de memória algum
+    - Comando utilizado: `valgrind --leak-check=full --track-origins=yes ./gbv -x bib.gbv ar1.txt`
 
-    TC-VIEW-05: Visualizar um arquivo vazio
+2. Adicionar um arquivo de tamanho 100.339 bytes ( `ar1.txt` )
+    - Comando utilizado: `valgrind --leak-check=full --track-origins=yes ./gbv -a bib.gbv ar1.txt`
 
-        Comando: ./gbv -v minhabib.gbv vazio.txt
-
-        Resultado Esperado: O programa deve mostrar um conteúdo vazio e sair com q sem erros.
-
-Categoria 6: Testes de Robustez e Integridade
-
-    TC-ROB-01: Operações com arquivos binários
-
-        Contexto: Usar uma imagem JPG ou um arquivo .bin como documento.
-
-        Comandos: Adicionar, listar, visualizar e remover o arquivo binário.
-
-        Resultado Esperado: Todas as operações devem funcionar corretamente. A visualização (-v) mostrará "lixo" na tela (o que é esperado), mas não deve travar. Os cálculos de tamanho e offset devem estar corretos.
-
-    TC-ROB-02: Sequência complexa de operações
-
-        Contexto: Realizar uma série de adições e remoções de forma intercalada.
-
-        Exemplo: Adicionar A, B, C -> Remover B -> Adicionar D -> Remover A -> Adicionar B (substituindo).
-
-        Resultado Esperado: Ao final, a listagem (-l) deve refletir o estado correto da biblioteca, com os offsets e o contador de arquivos no cabeçalho devidamente atualizados a cada passo.
-
-    TC-ROB-03 (Avançado): Teste com biblioteca corrompida
-
-        Contexto: Abrir o arquivo .gbv com um editor hexadecimal e alterar manualmente o cabeçalho (ex: mudar a contagem de arquivos para um valor incorreto).
-
-        Comando: Tentar executar qualquer operação (-l, -r, etc.).
-
-        Resultado Esperado: O programa idealmente não deve ter uma "falha de segmentação". Ele pode exibir um erro de inconsistência ou simplesmente se comportar de maneira inesperada, mas o objetivo é verificar se ele não causa uma falha grave.
+3. Adicionar três arquivos
+    - Comando utilizado: `valgrind --leak-check=full --track-origins=yes ./gbv -a bib.gbv ar1.tx ar2.txt ar3.txt`

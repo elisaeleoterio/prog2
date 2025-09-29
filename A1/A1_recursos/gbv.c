@@ -41,6 +41,7 @@ Por que eu não consigo transformar o main.c em um arquivo gbv?
 Não está dando free no lib->docs
 Não é permitido carregar um documento inteiro na memória?
 Posso alterar o main?
+Na gbv_remove, se o arquivo não estiver no diretório, eu retorno como erro?
 */
 
 // FUNÇÕES AUXILIARES
@@ -78,17 +79,16 @@ int gbv_create(const char *filename) {
         return 1;
     }
     
-    // Definição da quantidade de arquivos no diretório
+    // Escrita inicial do cabeçalho
+
     int tam = 0;
-    // Escrita inicial do cabeçalho (quantidade de arquivos)
     fseek(f, 0, SEEK_SET);
     fwrite(&tam, sizeof(int), 1, f);
 
-
     // Definição do offset de onde inicia a Área de Dados da biblioteca
     long int dir_offset = sizeof(int) + sizeof(long int); 
+
     fseek(f, sizeof(int), SEEK_SET);
-    // Escrita do offset no cabeçalho do diretório
     fwrite(&dir_offset, sizeof(long), 1, f);
     
     return fclose(f);
@@ -159,9 +159,11 @@ int gbv_add(Library *lib, const char *archive, const char *docname) {
         return 1;
     }
     
+    // DÚVIDA NESSA IMPLEMENTAÇÃO DE SUBSTITUIÇÃO
     // Verifica se arquivo já existe na biblioteca, 
     // Se sim, remove ele
     if (buscar(lib, docname) > -1) {
+        printf("Arquivo repetido.\n");
         if(gbv_remove(lib, archive, docname)) {
             printf("Erro ao remover arquivo repetido.\n");
             fclose(novo);
@@ -169,38 +171,47 @@ int gbv_add(Library *lib, const char *archive, const char *docname) {
         }
     }
 
-    // Achar tamanho do arquivo novo
-    fseek(novo, 0, SEEK_END);
-    long tam_novo = ftell(novo); // Tamanho do arquivo em bytes
-    fseek(novo, 0, SEEK_SET);
-    
-    // Criar buffer com tamanho do novo arquivo
-    void *buffer = malloc(tam_novo);
-
-    // Copiar arquivo novo pro buffer
-    fread(buffer, tam_novo, 1, novo);
-
-
     // Abre o diretório onde irá adicionar o arquivo com permissão de escrita
     FILE *f = fopen(archive, "r+b"); 
     if (!f) {
         printf("Biblioteca inexistente.\n");
         fclose(novo);
-        free(buffer);
         return 1;
     }
 
-    // Achar offset onde devo adicionar o arquivo
-    fseek(f, sizeof(int), SEEK_SET); // Coloca o início do stream após o fim da primeira parte do cabeçalho
-    long offset;
-    fread(&offset, sizeof(long int), 1, f); // Vai ler offset do diretório
-    fseek(f, offset, SEEK_SET); // Busca onde a área de dados finaliza
-
-    // Escrever arquivo novo na memória
-    fwrite(buffer, tam_novo, 1, f);
+    // Definir tamanho do arquivo novo
+    fseek(novo, 0, SEEK_END);
+    long tam_novo = ftell(novo); // Tamanho do arquivo em bytes
+    fseek(novo, 0, SEEK_SET);
     
-    free(buffer);
 
+    long offset;
+    if (tam_novo > 0) {
+        // Criar buffer com tamanho do novo arquivo
+        void *buffer = malloc(tam_novo);
+        if (!buffer) {
+            printf("Erro ao alocar.\n");
+            fclose(novo);
+            fclose(f);
+            return 1;
+        }
+        
+        // Copiar arquivo novo pro buffer
+        fread(buffer, tam_novo, 1, novo);        
+
+        // Achar offset onde devo adicionar o arquivo
+    
+        // Coloca o início do stream após o fim da primeira parte do cabeçalho
+        fseek(f, sizeof(int), SEEK_SET);
+        fread(&offset, sizeof(long int), 1, f); // Vai ler offset do diretório
+        fseek(f, offset, SEEK_SET); // Busca onde a área de dados finaliza
+
+        // Escrever arquivo novo na memória
+        fwrite(buffer, tam_novo, 1, f);
+        
+        free(buffer);
+    }
+    
     // Fecha arquivo novo
     fclose(novo);
 
@@ -215,24 +226,27 @@ int gbv_add(Library *lib, const char *archive, const char *docname) {
     lib->count++;
 
     // Aumentar espaço para os metadados
-    lib->docs = realloc(lib->docs, lib->count * sizeof(Document));
-    if (!lib->docs) {
+    Document *temp = realloc(lib->docs, lib->count * sizeof(Document));
+    if (!temp) {
         printf("Erro ao alocar.\n");
+        fclose(f);
         return 1;
     }
+    lib->docs = temp;
     
     // Escrever novo metadado no último espaço do vetor
     lib->docs[lib->count - 1] = metadados;
 
-    // Acha onde os metadados devem ser escritos (offset + tamanho do novo arquivo)
+    // Acha onde os metadados devem ser escritos no diretório (offset + tamanho do novo arquivo)
     fseek(f, offset + tam_novo, SEEK_SET);
     // Escreve metadados no fim do arquivo
     fwrite(lib->docs, sizeof(Document), lib->count, f);
     
     // Atualiza cabeçalho
     fseek(f, 0, SEEK_SET); // Coloca para o início do arquivo
-    fwrite(&lib->count, sizeof(int), 1, f); // Escreve a quantidade de arquivos
-    fseek(f, sizeof(int), SEEK_SET); // Coloca para após o dado da quantidade de aquivos
+    fwrite(&lib->count, sizeof(int), 1, f);
+    fseek(f, sizeof(int), SEEK_SET); 
+    
     long novo_offset = metadados.offset + tam_novo;
     fwrite(&novo_offset, sizeof(long), 1, f); // Escreve o offset para o fim da área de dados
     
@@ -240,12 +254,13 @@ int gbv_add(Library *lib, const char *archive, const char *docname) {
     return fclose(f);
 }
 
+// DÚVIDA NA IMPLEMENTAÇÃO
 // Remove logicamente os documentos indicados (os dados
 // permanecem no arquivo, mas o metadado é excluído).
 int gbv_remove(Library *lib, const char *archive, const char *docname) {
     if (!lib || !archive || !docname) {
         printf("Ponteiro nulo.\n");
-        return -1;
+        return 1;
     }
 
     // Busca posição do arquivo na biblioteca (busca nos metadaddos)
@@ -255,37 +270,70 @@ int gbv_remove(Library *lib, const char *archive, const char *docname) {
         return 0;
     }
 
-    void *buffer = malloc(2 * BUFFER_SIZE);
-    if (!buffer) {
-        printf("Erro ao alocar.\n");
-        return -1;
-    }
-    
     // Abre a biblioteca com permissão para leitura e escrita
     FILE *f = fopen(archive, "r+b");
-    // Passa por todos os arquivos depois do arquivo a ser removido
-    for (size_t i = pos + 1; i < lib->count; i++) {
-        fseek(f, lib->docs[i].offset, SEEK_SET); // Encontra onde o arquivo posterior começa
-        fread(buffer, lib->docs[i].size, 1, f); // Escreve arquivo no buffer
+
+    // Caso for o único arquivo da biblioteca
+    if (lib->count == 1) {
         
-        fseek(f, lib->docs[i - 1].offset, SEEK_SET); // Aponta para onde a escrita deve ser feita
-        long novo_offset = ftell(f);
-        fwrite(buffer, lib->docs[i].size, 1, f); // Substitui o arquivo anterior
-        lib->docs[i].offset = novo_offset; // Atualiza o metadado do arquivo movido
-    }
+        fseek(f, lib->docs[pos].offset, SEEK_SET);
 
-    // Substituir metadados no vetor da Library
-    for (size_t i = pos + 1; i < lib->count; i++) {
-        lib->docs[i - 1] = lib->docs[i];
-    }
+        
+        
+        // Jogar metadados para cima
+        // Atualizar lib->count
+        // Atualizar offset
+    } else {
+        
+        void *buffer = malloc(2 * BUFFER_SIZE); // DÚVIDA SOBRE ESSE TAMANHO   
+        if (!buffer) {
+            printf("Erro ao alocar.\n");
+            return 1;
+        }
     
-    // Atualização do tamanho do vetor
-    lib->docs = realloc(lib->docs, lib->count - 1);
+        printf("Malloc feito: %ld\n", sizeof(buffer));
+        
+    
+        // Move os arquivos posteriores para cima
+        for (size_t i = pos + 1; i < lib->count; i++) {
+            
+            printf("Loop vez %ld\n", i);
+    
+            // Encontra onde o arquivo posterior começa e o escreve no buffer
+            fseek(f, lib->docs[i].offset, SEEK_SET); 
+            fread(buffer, lib->docs[i].size, 1, f); 
+            
+            // Busca onde deve ser escrito, realiza a substituição e atualiza o metadado
+            fseek(f, lib->docs[i - 1].offset, SEEK_SET); 
+            long novo_offset = ftell(f);
+            fwrite(buffer, lib->docs[i].size, 1, f); 
+            lib->docs[i].offset = novo_offset; 
+        }
+    
+        printf("Saiu do loop.\n");
+    
+        // Substituir metadados no vetor da Library
+        for (size_t i = pos + 1; i < lib->count; i++) {
+            printf("Substituir.\n");
+            lib->docs[i - 1] = lib->docs[i];
+        }
+        
+        // Atualização do tamanho do vetor
+        Document *temp = realloc(lib->docs, lib->count - 1);
+        if (!temp) {
+            printf("Erro ao realocar docs.\n");
+            fclose(f);
+            return 1;
+        }
+        lib->docs = temp;
 
-    // Escrever metadados na biblioteca
-    long fim_dados = lib->docs[lib->count - 1].offset + lib->docs[lib->count - 1].size; // Definir offset do fim da Área de Dados
-    fseek(f, fim_dados, SEEK_SET); // Alterar para apontar para lá
-    fwrite(lib->docs, sizeof(Document), lib->count, f); // Escrever metadados
+        // Escrever metadados na biblioteca
+        long fim_dados = lib->docs[lib->count - 1].offset + lib->docs[lib->count - 1].size; // Definir offset do fim da Área de Dados
+        fseek(f, fim_dados, SEEK_SET); // Alterar para apontar para lá
+        fwrite(lib->docs, sizeof(Document), lib->count, f); // Escrever metadados
+    }
+
+
 
     fseek(f, 0, SEEK_SET); // Apontar para início da biblioteca
 
