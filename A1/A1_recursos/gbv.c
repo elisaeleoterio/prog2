@@ -40,6 +40,7 @@ Falta archive no gbv_view também?
 Por que eu não consigo transformar o main.c em um arquivo gbv?
 Não está dando free no lib->docs
 Não é permitido carregar um documento inteiro na memória?
+Posso alterar o main?
 */
 
 // FUNÇÕES AUXILIARES
