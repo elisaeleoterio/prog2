@@ -142,3 +142,10 @@ https://www.tutorialspoint.com/c_standard_library/
 
 
 - ./gbv -a bib.gbv ar1.txt ar2.txt ar3.txt rodou certo
+
+
+
+
+![alt text](image.png)
+
+![alt text](image-1.png)

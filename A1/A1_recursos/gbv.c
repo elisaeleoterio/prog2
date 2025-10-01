@@ -33,18 +33,17 @@ PERGUNTAS:
 // Não entendi a função que está definida em util.c
 // Essa forma de implementação do ponteiro para a lib->docs, que só apresenta o ponteiro para o início do vetor é realmente assim?
 
-Não entendi exatamente a função remover. Eu removo logicamente o arquivo, mas não os dados. Quando eu for visualizar os arquivos, eu não imprimo esse que foi removido daí?
+// Não entendi exatamente a função remover. Eu removo logicamente o arquivo, mas não os dados. Quando eu for visualizar os arquivos, eu não imprimo esse que foi removido daí?
 Ao substituir um arquivo na função add, precisa ser adicionado no mesmo lugar?
     Precisa
 Como limitar o tamanho do nome do arquivo ao adicionar nos metadados?
-Como abrir a biblioteca no remover?
-Falta archive no gbv_view também?
+// Como abrir a biblioteca no remover?
+// Falta archive no gbv_view também?
 Por que eu não consigo transformar o main.c em um arquivo gbv?
-Não está dando free no lib->docs
-
+// Não está dando free no lib->docs
 
 Não é permitido carregar um documento inteiro na memória?
-Posso alterar o main?
+// Posso alterar o main?
 Na gbv_remove, se o arquivo não estiver no diretório, eu retorno como erro?
 */
 
@@ -163,11 +162,9 @@ int gbv_add(Library *lib, const char *archive, const char *docname) {
         return 1;
     }
     
-    // DÚVIDA NESSA IMPLEMENTAÇÃO DE SUBSTITUIÇÃO
     // Verifica se arquivo já existe na biblioteca, 
-    // Se sim, remove ele
+    // Se sim, remove ele para adicionar posteriormente
     if (buscar(lib, docname) > -1) {
-        printf("Arquivo repetido.\n");
         if(gbv_remove(lib, archive, docname)) {
             printf("Erro ao remover arquivo repetido.\n");
             fclose(novo);
@@ -186,12 +183,18 @@ int gbv_add(Library *lib, const char *archive, const char *docname) {
     // Definir tamanho do arquivo novo
     fseek(novo, 0, SEEK_END);
     long tam_novo = ftell(novo); // Tamanho do arquivo em bytes
+    printf("Tamanho arquivo: %ld\n", tam_novo);
     fseek(novo, 0, SEEK_SET);
     
 
     long offset;
-    if (tam_novo > 0) {
-        // Criar buffer com tamanho do novo arquivo
+    fseek(f, sizeof(int), SEEK_SET);
+    fread(&offset, sizeof(long), 1, f);
+    fseek(f, 0, SEEK_SET);
+    printf("Offset fim arquivos (old): %ld\n", offset);
+
+    if (tam_novo > 0) { // Não é arquivo vazio
+        // Criar buffer com tamanho máximo
         void *buffer = malloc(2 * BUFFER_SIZE);
         if (!buffer) {
             printf("Erro ao alocar.\n");
@@ -205,10 +208,11 @@ int gbv_add(Library *lib, const char *archive, const char *docname) {
 
         // Achar offset onde devo adicionar o arquivo
     
-        // Coloca o início do stream após o fim da primeira parte do cabeçalho
         fseek(f, sizeof(int), SEEK_SET);
-        fread(&offset, sizeof(long int), 1, f); // Vai ler offset do diretório
-        fseek(f, offset, SEEK_SET); // Busca onde a área de dados finaliza
+        fread(&offset, sizeof(long), 1, f); 
+        fseek(f, offset, SEEK_SET);
+
+        printf("Offset início novo arquivo (novo): %ld\n", offset);
 
         // Escrever arquivo novo na memória
         fwrite(buffer, tam_novo, 1, f);
@@ -242,7 +246,8 @@ int gbv_add(Library *lib, const char *archive, const char *docname) {
     lib->docs[lib->count - 1] = metadados;
 
     // Acha onde os metadados devem ser escritos no diretório (offset + tamanho do novo arquivo)
-    fseek(f, offset + tam_novo, SEEK_SET);
+    long meta = offset + tam_novo;
+    fseek(f, meta, SEEK_SET);
     // Escreve metadados no fim do arquivo
     fwrite(lib->docs, sizeof(Document), lib->count, f);
     
@@ -259,7 +264,6 @@ int gbv_add(Library *lib, const char *archive, const char *docname) {
     return fclose(f);
 }
 
-// DÚVIDA NA IMPLEMENTAÇÃO
 // Remove logicamente os documentos indicados (os dados
 // permanecem no arquivo, mas o metadado é excluído).
 int gbv_remove(Library *lib, const char *archive, const char *docname) {
@@ -281,8 +285,10 @@ int gbv_remove(Library *lib, const char *archive, const char *docname) {
     // Caso for o único arquivo da biblioteca
     if (lib->count <= 1) {
 
-        fseek(f, 0, SEEK_SET);
         lib->count--;
+
+        // Escreve cabeçalho
+        fseek(f, 0, SEEK_SET);
         fwrite(&lib->count, sizeof(int), 1, f);
 
         fseek(f, sizeof(int), SEEK_SET);
@@ -298,7 +304,7 @@ int gbv_remove(Library *lib, const char *archive, const char *docname) {
         // Move os arquivos posteriores para cima
         for (int i = pos + 1; i < lib->count; i++) {
             
-            buffer = malloc(lib->docs[i].size); // DÚVIDA SOBRE ESSE TAMANHO   
+            buffer = malloc(lib->docs[i].size);  
             if (!buffer) {
                 printf("Erro ao alocar.\n");
                 return 1;
@@ -308,18 +314,20 @@ int gbv_remove(Library *lib, const char *archive, const char *docname) {
             fseek(f, lib->docs[i].offset, SEEK_SET); 
             fread(buffer, lib->docs[i].size, 1, f); 
             
-            // Busca onde deve ser escrito, realiza a substituição e atualiza o metadado
+            // Busca onde deve ser escrito e realiza a substituição
             fseek(f, lib->docs[i - 1].offset, SEEK_SET); 
-            long novo_offset = ftell(f);
             fwrite(buffer, lib->docs[i].size, 1, f); 
-            lib->docs[i].offset = novo_offset; 
-
-
         }
         
         // Substituir metadados no vetor da Library
         for (int i = pos + 1; i < lib->count; i++) {
             lib->docs[i - 1] = lib->docs[i];
+        }
+
+        long novo_offset = sizeof(int) + sizeof(long); // início da área de dados
+        for (int i = 0; i < lib->count; i++) {
+            lib->docs[i].offset = novo_offset;
+             novo_offset += lib->docs[i].size;
         }
         
         lib->count--;
@@ -383,21 +391,21 @@ int gbv_list(const Library *lib) {
 int gbv_view(const Library *lib, const char *archive, const char *docname) {
     if (!lib || !archive || !docname) {
         printf("Ponteiro nulo.\n");
-        return -1;
+        return 1;
     }
 
-    // Abre arquivo para 
+    // Abre arquivo para leitura
     FILE *f = fopen(archive, "rb");
     if (!f) {
         printf("Arquivo inexistente.\n");
-        return -1;
+        return 1;
     }
     
     // Encontra o incio do arquivo (será usado como condição para não ler lixo de memória)    
     fseek(f, 0, SEEK_SET);
     long inicio = ftell(f);
 
-    // Encontra o fim do arquivo (será usado como condição para não ler lixo de memória)
+    // Encontra o fim do arquivo
     fseek(f, 0, SEEK_END);
     long fim = ftell(f);
 
@@ -411,63 +419,69 @@ int gbv_view(const Library *lib, const char *archive, const char *docname) {
     
     // Aloca vetor para ler arquivo
     // Blocos serão do tamanho BLOCK_SIZE
-    void *buffer = malloc(BLOCK_SIZE);
+    char *buffer = malloc(BLOCK_SIZE);
     if (!buffer) {
         printf("Erro ao alocar.\n");
-        return -1;
+        return 1;
     }
 
     // Seta para o início do bloco a ser lido
     fseek(f, lib->docs[pos].offset, SEEK_SET);
+    long offset = ftell(f);
+    printf("Offset inicial: %ld\n", offset);
 
     //Escreve pedaço de tamanho BLOCK_SIZE do arquivo no buffer
     fread(buffer, BLOCK_SIZE, 1, f);
 
     // Imprime trecho do arquivo para o usuário
     printf("----------------------------------------\n");
-    char *trecho = (char*)buffer; // Tranforma o ponteiro de void em uma string
-    printf("%s\n", trecho);
+    printf("%s\n", buffer);
     printf("----------------------------------------\n");
 
+    // Início da navegação do view
     char nav;
+    printf("Navegação → n (próximo bloco) | p (bloco anterior) | q (sair da visualização)\n");
+    printf("Escolha a próxima operação: ");
     scanf(" %c", &nav);
     while (nav != 'q') {
+        // Seguir para próximo bloco
         if (nav == 'n') {
-            pos = ftell(f) + BLOCK_SIZE; // Pega a posição atual do ponteiro do file e soma para ir para o próximo bloco
-            if (pos > fim) {
+            offset = offset + BLOCK_SIZE; // Pega a posição atual do ponteiro do file e soma para ir para o próximo bloco
+            if (offset > fim) {
                 printf("Você chegou ao fim da biblioteca.\n");
-                // Fecahr coisas tudo
+                fclose(f);
+                free(buffer);
                 return 1;
             }
 
-            fseek(f, pos, SEEK_SET);
+            fseek(f, offset, SEEK_SET);
             //Escreve pedaço de tamanho BLOCK_SIZE do arquivo no buffer
             fread(buffer, BLOCK_SIZE, 1, f);
 
             // Imprime trecho do arquivo para o usuário
             printf("----------------------------------------\n");
-            trecho = (char*)buffer; // Tranforma o ponteiro de void em uma string
-            printf("%s\n", trecho);
+            printf("%s\n", buffer);
             printf("----------------------------------------\n");
-            
+        // Retornar ao bloco anterior
         } else if (nav == 'p') {
-            pos = ftell(f) - BLOCK_SIZE; // Pega a posição atual do ponteiro do file e soma para ir para o próximo bloco
-            if (pos < inicio) {
-                printf("Você chegou a antes do fim da biblioteca.\n");
-                // Fecahr coisas tudo
+            offset = offset - BLOCK_SIZE; // Pega a posição atual do ponteiro do file e subtraí para ir para o próximo bloco
+            if (offset < inicio) {
+                printf("Você chegou antes do início da biblioteca.\n");
+                fclose(f);
+                free(buffer);
                 return 1;
             }
 
-            fseek(f, pos, SEEK_SET);
+            fseek(f, offset, SEEK_SET);
             //Escreve pedaço de tamanho BLOCK_SIZE do arquivo no buffer
             fread(buffer, BLOCK_SIZE, 1, f);
 
             // Imprime trecho do arquivo para o usuário
             printf("----------------------------------------\n");
-            trecho = (char*)buffer; // Tranforma o ponteiro de void em uma string
-            printf("%s\n", trecho);
+            printf("%s\n", buffer);
             printf("----------------------------------------\n");
         }
+        printf("Escolha a próxima operação: ");
         scanf(" %c", &nav);
         printf("\n");
     }
